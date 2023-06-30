@@ -6,7 +6,6 @@ from typing_extensions import ParamSpec, Concatenate, Protocol
 T = TypeVar("T")
 R = TypeVar("R")
 P = ParamSpec("P")
-SelfP = Concatenate[Any, Any, P]
 
 
 class Method(Protocol, Generic[P, R]):
@@ -20,7 +19,6 @@ class Method(Protocol, Generic[P, R]):
 # , "return": f.__annotations__["return"]
 def mirror_method(x: Callable[P, Any]):
     def decorator(f: Callable[..., R]) -> Method[P, R]:
-        print(x.__annotations__)
         f.__annotations__ = {**x.__annotations__}
         return f  # type: ignore
 
@@ -29,7 +27,6 @@ def mirror_method(x: Callable[P, Any]):
 
 def mirror_func(x: Callable[P, Any]):
     def decorator(f: Callable[..., R]) -> Callable[P, R]:
-        print(x.__annotations__)
         f.__annotations__ = {**x.__annotations__}
         return f  # type: ignore
 
