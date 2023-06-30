@@ -15,14 +15,14 @@ class ReadonlyRef(Generic[T]):
         return self.___getter()
 
 
-class Ref(Generic[T]):
+class Ref(ReadonlyRef[T]):
     def __init__(self, getter: TGetter[T], setter: TSetter[T]) -> None:
-        self.___getter = getter
+        super().__init__(getter)
         self.___setter = setter
 
     @property
     def value(self):
-        return self.___getter()
+        return super().value
 
     @value.setter
     def value(self, value: T):
