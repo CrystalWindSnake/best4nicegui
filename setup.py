@@ -36,7 +36,14 @@ setup(
     keywords=["nicegui", "best4nicegui", "webui"],
     name="best4nicegui",
     packages=find_packages(include=["best4nicegui", "best4nicegui.*"]),
-    data_files=[],
+    data_files=[
+        (
+            "echarts",
+            [
+                "best4nicegui/bi/echarts/ECharts.js",
+            ],
+        )
+    ],
     test_suite="__tests",
     tests_require=test_requirements,
     url="",
