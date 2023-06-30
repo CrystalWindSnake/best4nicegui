@@ -59,6 +59,7 @@ class DataFrameSource:
         pagination = kws.get("pagination", cp_signature.Table_Defalut_pagination)
 
         element = ui.table([], [], *arg, **kws, pagination=pagination)
+        element.classes("w-full")
 
         cols = [
             {"name": col, "field": col, "label": col} for col in self._org_df.columns
@@ -103,9 +104,9 @@ class DataFrameSource:
 
         return element
 
-    @types_utils.mirror_method(echarts)
+    @types_utils.mirror_method(cp_signature.echarts)
     def echarts(self, *arg, **kws):
-        return EChartsBinder(self, echarts(*arg, **kws))
+        return EChartsBinder(self, echarts({}, *arg, **kws))
 
 
 class FieldSource:
@@ -261,10 +262,15 @@ class EChartsBinder:
     def __init__(self, data_source: DataFrameSource, element: echarts) -> None:
         self.__element = element
         self.__ds = data_source
+        self.__effect_fn: Optional[Callable] = None
 
     @property
     def element(self):
         return self.__element
+
+    def force_refresh(self):
+        if self.__effect_fn:
+            self.__effect_fn()
 
     def build_options(self, fn: Callable[[pd.DataFrame], Dict]):
         """创建图表配置字典
@@ -282,13 +288,15 @@ class EChartsBinder:
 
         """
 
-        @effect
-        def _():
+        def update_options_callback():
             org_df = self.__ds.get_filtered_df(self.element)
             assert isinstance(org_df, pd.DataFrame)
             opts = fn(org_df)
 
             self.element.update_options(opts, True)
+
+        self.__effect_fn = update_options_callback
+        effect(self.__effect_fn)
 
         self.element._props["options"] = fn(self.__ds.get_filtered_df(self.element))  # type: ignore
 

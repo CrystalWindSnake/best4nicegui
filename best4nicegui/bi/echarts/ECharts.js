@@ -43945,7 +43945,7 @@ pt(qZ);
 pt(QZ);
 pt(bX);
 pt(tz);
-const TX = { class: "echart-container" }, DX = /* @__PURE__ */ GL({
+const TX = { class: "echart-container relative w-full h-full" }, CX = /* @__PURE__ */ GL({
   __name: "ECharts",
   props: {
     options: null,
@@ -43973,19 +43973,14 @@ const TX = { class: "echart-container" }, DX = /* @__PURE__ */ GL({
       updateOptions: i
     }), (o, s) => (HL(), WL("div", TX, [
       $L("div", {
-        class: "echart",
+        class: "echart w-full h-full",
+        style: { "min-height": "30vh", "min-width": "50rem" },
         ref_key: "chartDiv",
         ref: a
       }, null, 512)
     ]));
   }
 });
-const CX = (r, e) => {
-  const t = r.__vccOpts || r;
-  for (const [a, n] of e)
-    t[a] = n;
-  return t;
-}, MX = /* @__PURE__ */ CX(DX, [["__scopeId", "data-v-21a3faba"]]);
 export {
-  MX as default
+  CX as default
 };

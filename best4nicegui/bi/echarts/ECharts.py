@@ -6,15 +6,6 @@ from nicegui.element import Element
 from pathlib import Path
 
 register_component("ECharts", __file__, "ECharts.js")
-app.add_static_file(
-    local_file=Path(__file__).parent / "ECharts.css", url_path="/my-echarts/ECharts.css"
-)
-
-ui.add_head_html(
-    """
-<link id="my-echarts-style" rel="stylesheet" href="/my-echarts/ECharts.css">
-"""
-)
 
 
 class echarts(Element):
