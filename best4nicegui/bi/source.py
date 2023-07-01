@@ -1,8 +1,7 @@
-from signe import createSignal, effect, computed, batch
-from signe.types import TGetter, TSetter
+from signe import createSignal, effect
 from nicegui import ui
 from nicegui.element import Element
-from typing import Optional, overload, List, Callable, cast, Dict, TypeVar, Any
+from typing import Optional, Callable, Union, cast, Dict, TypeVar, Any, List
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from typing_extensions import Literal
@@ -10,12 +9,22 @@ import operator
 from .echarts.ECharts import echarts
 import best4nicegui.utils.types as types_utils
 from . import signature as cp_signature
+from dataclasses import dataclass
+import best4nicegui.utils.common as common_utils
+
+_FilterType = Literal["chart", "regular"]
+
+
+@dataclass
+class Filter:
+    expr: Callable[[pd.DataFrame], pd.Series]
+    type: _FilterType
+
 
 _T = TypeVar("_T")
 
 _TCpId = int
-_TFilter = Callable[[pd.DataFrame], pd.Series]
-_TFilterMap = Dict[_TCpId, _TFilter]
+_TFilterMap = Dict[_TCpId, Filter]
 
 _TSliderOperators = Literal["<=", "==", ">=", "<", ">", "!="]
 _slider_operator_map: Dict[_TSliderOperators, Any] = {
@@ -26,6 +35,14 @@ _slider_operator_map: Dict[_TSliderOperators, Any] = {
     ">": operator.gt,
     "!=": operator.ne,
 }
+
+
+def _Default_Include_Expr(filter: Filter) -> bool:
+    return True
+
+
+def _Regular_Include_Expr(filter: Filter) -> bool:
+    return filter.type == "regular"
 
 
 class DataFrameSource:
@@ -40,19 +57,29 @@ class DataFrameSource:
             raise KeyError(f"Field name[{field}] not exist in the source.")
         return FieldSource(self, field)
 
-    def _get_filtered_df(self, element_id: _TCpId) -> pd.DataFrame:
+    def _get_filtered_df(
+        self,
+        element_id: _TCpId,
+        include_expr: Callable[[Filter], bool] = _Default_Include_Expr,
+    ) -> pd.DataFrame:
         org_df = self._org_df
         filters_except_self = [
-            f for id, f in self.__get_filters().items() if id != element_id
+            f
+            for id, f in self.__get_filters().items()
+            if id != element_id and include_expr(f)
         ]
 
-        for c in filters_except_self:
-            org_df = org_df[c]  # type: ignore
+        for f in filters_except_self:
+            org_df = org_df[f.expr]  # type: ignore
 
         return org_df  # type: ignore
 
-    def get_filtered_df(self, element: Element):
-        return self._get_filtered_df(element.id)
+    def get_filtered_df(
+        self,
+        element: Element,
+        include_expr: Callable[[Filter], bool] = _Default_Include_Expr,
+    ):
+        return self._get_filtered_df(element.id, include_expr)
 
     @types_utils.mirror_method(cp_signature.table)
     def table(self, *arg, **kws) -> ui.table:
@@ -136,14 +163,16 @@ class FieldSource:
                 if len(values) == 0 and element.id in filters_map:
                     del filters_map[element.id]
                 else:
-                    filters_map[element.id] = lambda x: x[self.__field].isin(values)
+                    filters_map[element.id] = Filter(
+                        lambda x: x[self.__field].isin(values), "regular"
+                    )
                 return filters_map
 
         element.on("update:model-value", handler=on_update)
 
         @effect
         def _():
-            org_df = self._df_source._get_filtered_df(element.id)
+            org_df = self._df_source._get_filtered_df(element.id, _Regular_Include_Expr)
 
             element.options = list(org_df[self.__field].drop_duplicates())
             element.update()
@@ -165,14 +194,16 @@ class FieldSource:
                 if value is None and element.id in filters_map:
                     del filters_map[element.id]
                 else:
-                    filters_map[element.id] = lambda x: x[self.__field] == value
+                    filters_map[element.id] = Filter(
+                        lambda x: x[self.__field] == value, "regular"
+                    )
                 return filters_map
 
         element.on("update:model-value", handler=on_update)
 
         @effect
         def _():
-            org_df = self._df_source._get_filtered_df(element.id)
+            org_df = self._df_source._get_filtered_df(element.id, _Regular_Include_Expr)
             element.options = list(org_df[self.__field].drop_duplicates())
 
             element.update()
@@ -194,14 +225,16 @@ class FieldSource:
                 if value is None and element.id in filters_map:
                     del filters_map[element.id]
                 else:
-                    filters_map[element.id] = lambda x: x[self.__field] == value
+                    filters_map[element.id] = Filter(
+                        lambda x: x[self.__field] == value, "regular"
+                    )
                 return filters_map
 
         element.on("update:model-value", handler=on_update)
 
         @effect
         def _():
-            org_df = self._df_source._get_filtered_df(element.id)
+            org_df = self._df_source._get_filtered_df(element.id, _Regular_Include_Expr)
 
             element.options = list(org_df[self.__field].drop_duplicates())
             element.update()
@@ -242,8 +275,11 @@ class FieldSource:
                 if value is None and element.id in filters_map:
                     del filters_map[element.id]
                 else:
-                    filters_map[element.id] = lambda x: _slider_operator_map[operators](
-                        x[self.__field], value
+                    filters_map[element.id] = Filter(
+                        lambda x: _slider_operator_map[operators](
+                            x[self.__field], value
+                        ),
+                        "regular",
                     )
                 return filters_map
 
@@ -251,11 +287,51 @@ class FieldSource:
 
         @effect
         def _():
-            filtered_df = self._df_source._get_filtered_df(element.id)
+            filtered_df = self._df_source._get_filtered_df(
+                element.id, _Regular_Include_Expr
+            )
             set_options(filtered_df)
             element.update()
 
         return element
+
+
+class BuildOptionsArgs:
+    _Default_Replace_Merge = [
+        "title",
+    ]
+
+    def __init__(self) -> None:
+        self.__df = None
+        self.__set_options_opts = {}
+
+    @property
+    def df(self):
+        return cast(pd.DataFrame, self.__df)
+
+    def _init_settings(self, df: pd.DataFrame):
+        self.__df = df
+        self.__set_options_opts: Dict[str, Any] = {
+            "replaceMerge": BuildOptionsArgs._Default_Replace_Merge
+        }
+        # self.__set_options_opts["notMerge"] = True
+        return self
+
+    def _reset(self):
+        self.__df = None
+        self.__set_options_opts.clear()
+        return self
+
+    # def replace_merge(self, props: Union[List[str], str]):
+    #     self.__set_options_opts["replaceMerge"] = props
+    #     return self
+
+    def get_opts(self):
+        opts = self.__set_options_opts
+        if "replaceMerge" in opts and "notMerge" in opts and opts["notMerge"] == True:
+            opts["notMerge"] = False
+
+        return opts
 
 
 class EChartsBinder:
@@ -263,6 +339,7 @@ class EChartsBinder:
         self.__element = element
         self.__ds = data_source
         self.__effect_fn: Optional[Callable] = None
+        self.__buildOptionsArgs = BuildOptionsArgs()
 
     @property
     def element(self):
@@ -272,15 +349,25 @@ class EChartsBinder:
         if self.__effect_fn:
             self.__effect_fn()
 
-    def build_options(self, fn: Callable[[pd.DataFrame], Dict]):
+    def send_filter(self, fn):
+        @self.__ds._set_filters
+        def _(filters_map: _TFilterMap):
+            filters_map[self.element.id] = Filter(
+                lambda x: _slider_operator_map[operators](x[self.__field], value),
+                "chart",
+            )
+            return filters_map
+
+    def build_options(self, fn: Callable[[BuildOptionsArgs], Dict]):
         """创建图表配置字典
         Args:
-            fn (Callable[[pd.DataFrame], Dict]): 创建字典的函数。当数据源变动，此函数将被执行
+            fn (Callable[[BuildOptionsArgs], Dict]): 创建字典的函数。当数据源变动，此函数将被执行
 
         函数模板:
             ```python
-            def opts(df:pd.DataFrame):
 
+            def opts(args:bi.BuildOptionsArgs):
+                df = args.df # 联动过滤后的 dataframe
                 # 使用 df 生成配置并返回
                 opt_dict = {}
                 return opt_dict
@@ -291,25 +378,29 @@ class EChartsBinder:
         def update_options_callback():
             org_df = self.__ds.get_filtered_df(self.element)
             assert isinstance(org_df, pd.DataFrame)
-            opts = fn(org_df)
 
-            self.element.update_options(opts, True)
+            self.__buildOptionsArgs._init_settings(org_df)
+            opts = fn(self.__buildOptionsArgs)
+
+            self.element.update_options(opts, self.__buildOptionsArgs.get_opts())
 
         self.__effect_fn = update_options_callback
         effect(self.__effect_fn)
 
-        self.element._props["options"] = fn(self.__ds.get_filtered_df(self.element))  # type: ignore
+        self.__buildOptionsArgs._init_settings(self.__ds.get_filtered_df(self.element))
+        self.element._props["options"] = fn(self.__buildOptionsArgs)  # type: ignore
 
         return self.element
 
-    def build_options_pyecharts(self, fn: Callable[[pd.DataFrame], Any]):
+    def build_options_pyecharts(self, fn: Callable[[BuildOptionsArgs], Any]):
         """使用 pyecharts 创建图表配置字典
         Args:
-            fn (Callable[[pd.DataFrame], Any]): 创建字典的函数。当数据源变动，此函数将被执行
+            fn (Callable[[BuildOptionsArgs], Any]): 创建字典的函数。当数据源变动，此函数将被执行
 
         函数模板:
             ```python
-        def on_df_changed(df:pd.DataFrame):
+        def on_df_changed(args:bi.BuildOptionsArgs):
+            df = args.df
             c = (
                 Bar()
                 .add_xaxis(df['x'])
@@ -325,8 +416,8 @@ class EChartsBinder:
         import simplejson as json
 
         @self.build_options
-        def opts(df: pd.DataFrame):
-            chartbase = fn(df)
+        def opts(args: BuildOptionsArgs):
+            chartbase = fn(args)
             opt_dict = json.loads(chartbase.dump_options())
             return opt_dict
 

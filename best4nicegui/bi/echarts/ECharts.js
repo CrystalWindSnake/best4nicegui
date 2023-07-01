@@ -43951,32 +43951,35 @@ const TX = { class: "echart-container relative w-full h-full" }, CX = /* @__PURE
     options: null,
     theme: null
   },
-  setup(r, { expose: e }) {
-    const t = r, a = Tb(null);
+  emits: ["chartClick"],
+  setup(r, { expose: e, emit: t }) {
+    const a = r, n = Tb(null);
     FL(() => {
-      gV(a.value);
+      gV(n.value);
     });
-    let n = null;
+    let i = null;
     Db(() => {
-      n = dV(a.value, t.theme), n.setOption(t.options), og(() => t.options, (o) => {
-        console.log("watch props.options:", o), n == null || n.setOption(o);
+      i = dV(n.value, a.theme), i.setOption(a.options), og(() => a.options, (s) => {
+        i == null || i.setOption(s);
+      }), i.on("click", "series", (s) => {
+        t("chartClick", s);
       }), ZL("resize", () => {
-        n == null || n.resize();
-      }), JL(a, () => {
-        n == null || n.resize();
+        i == null || i.resize();
+      }), JL(n, () => {
+        i == null || i.resize();
       });
     });
-    function i(o, s) {
-      console.log("updateOptions:", o), n == null || n.setOption(o, s);
+    function o(s, l) {
+      i == null || i.setOption(s, l);
     }
     return e({
-      updateOptions: i
-    }), (o, s) => (HL(), WL("div", TX, [
+      updateOptions: o
+    }), (s, l) => (HL(), WL("div", TX, [
       $L("div", {
         class: "echart w-full h-full",
         style: { "min-height": "30vh", "min-width": "50rem" },
         ref_key: "chartDiv",
-        ref: a
+        ref: n
       }, null, 512)
     ]));
   }
