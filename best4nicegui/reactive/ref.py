@@ -79,7 +79,6 @@ class TextColorElementBindableUi(BindableUi[T, TWidget]):
                 ele._classes.append(f"text-{color}")
             elif color is not None:
                 ele._style["color"] = color
-            ele._props["name"] = ref_ui.value
             ele.update()
 
         return self
@@ -95,19 +94,43 @@ class TextColorElementBindableUi(BindableUi[T, TWidget]):
 
 
 class ValueElementBindableUi(BindableUi[T, TWidget]):
-    def __init__(self, value: T, element: TWidget) -> None:
-        super().__init__(value, element)
-
+    @staticmethod
+    def _setup_normal(bui: "ValueElementBindableUi"):
         def onValueChanged(args):
-            self.value = args["args"]
+            bui.value = args["args"]
 
-        ele = cast(ValueElement, element)
+        ele = cast(ValueElement, bui.element)
 
         @effect
         def _():
-            ele.value = self.value
+            ele.value = bui.value
 
         ele.on("update:modelValue", handler=onValueChanged)
+
+    @staticmethod
+    def _setup_select(bui: "ValueElementBindableUi"):
+        def onValueChanged(args):
+            bui.value = args["args"]["label"]
+
+        @effect
+        def _():
+            bui.element.value = bui.value
+
+        bui.element.on("update:modelValue", handler=onValueChanged)
+
+    @staticmethod
+    def _setup_radio(bui: "ValueElementBindableUi"):
+        def onValueChanged(args):
+            bui.value = bui.element.options[args["args"]]
+
+        @effect
+        def _():
+            bui.element.value = bui.value
+
+        bui.element.on("update:modelValue", handler=onValueChanged)
+
+    def __init__(self, value: T, element: TWidget) -> None:
+        super().__init__(value, element)
 
     def bind_prop(self, prop: str, ref_ui: ReadonlyRef):
         if prop == "value":

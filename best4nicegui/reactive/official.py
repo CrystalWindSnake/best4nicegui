@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 import best4nicegui.utils.types as types_utils
 from nicegui import ui
 from .ref import (
@@ -21,6 +21,7 @@ def label(*arg, **kws) -> TextElementBindableUi[ui.label]:
 def input(*arg, **kws) -> ValueElementBindableUi[str, ui.input]:
     element = ui.input(*arg, **kws)
     r = ValueElementBindableUi(element.value, element)
+    ValueElementBindableUi._setup_normal(r)
     return r
 
 
@@ -28,6 +29,32 @@ def input(*arg, **kws) -> ValueElementBindableUi[str, ui.input]:
 def checkbox(*arg, **kws) -> ValueElementBindableUi[bool, ui.checkbox]:
     element = ui.checkbox(*arg, **kws)
     r = ValueElementBindableUi(element.value, element)
+    ValueElementBindableUi._setup_normal(r)
+    return r
+
+
+@types_utils.mirror_func(ui.radio)
+def radio(*arg, **kws) -> ValueElementBindableUi[bool, ui.radio]:
+    element = ui.radio(*arg, **kws)
+    r = ValueElementBindableUi(element.value, element)
+    ValueElementBindableUi._setup_radio(r)
+    return r
+
+
+@types_utils.mirror_func(ui.switch)
+def switch(*arg, **kws) -> ValueElementBindableUi[bool, ui.switch]:
+    element = ui.switch(*arg, **kws)
+    r = ValueElementBindableUi(element.value, element)
+    ValueElementBindableUi._setup_normal(r)
+    return r
+
+
+@types_utils.mirror_func(ui.select)
+def select(*arg, **kws) -> ValueElementBindableUi[str, ui.select]:
+    element = ui.select(*arg, **kws)
+
+    r = ValueElementBindableUi(element.value, element)
+    ValueElementBindableUi._setup_select(r)
     return r
 
 
