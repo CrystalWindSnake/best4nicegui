@@ -6,7 +6,7 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from typing_extensions import Literal
 import operator
-from .echarts.ECharts import echarts
+from best4nicegui.reactive import echarts
 import best4nicegui.utils.types as types_utils
 from . import signature as cp_signature
 from dataclasses import dataclass

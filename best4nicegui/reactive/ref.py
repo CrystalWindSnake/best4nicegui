@@ -53,6 +53,23 @@ class BindableUi(RefUi[T, TWidget]):
         return self
 
 
+def _bind_color(bindable_ui: BindableUi, ref_ui: ReadonlyRef):
+    @effect
+    def _():
+        ele = cast(TextColorElement, bindable_ui.element)
+        color = ref_ui.value
+
+        if color in QUASAR_COLORS:
+            ele._props[ele.TEXT_COLOR_PROP] = color
+        elif color in TAILWIND_COLORS:
+            ele.classes(replace=f"text-{color}")
+        elif color is not None:
+            ele._style["color"] = color
+        ele.update()
+
+    return bindable_ui
+
+
 class TextColorElementBindableUi(BindableUi[T, TWidget]):
     def __init__(self, value: T, element: TWidget) -> None:
         super().__init__(value, element)
@@ -69,20 +86,7 @@ class TextColorElementBindableUi(BindableUi[T, TWidget]):
         return super().bind_prop(prop, ref_ui)
 
     def bind_color(self, ref_ui: ReadonlyRef):
-        @effect
-        def _():
-            ele = cast(TextColorElement, self.element)
-            color = ref_ui.value
-
-            if color in QUASAR_COLORS:
-                ele._props[ele.TEXT_COLOR_PROP] = color
-            elif color in TAILWIND_COLORS:
-                ele._classes.append(f"text-{color}")
-            elif color is not None:
-                ele._style["color"] = color
-            ele.update()
-
-        return self
+        return _bind_color(self, ref_ui)
 
     def bind_name(self, ref_ui: ReadonlyRef):
         @effect
@@ -155,7 +159,22 @@ class TextElementBindableUi(BindableUi[str, TWidget]):
         if prop == "text":
             return self.bind_text(ref_ui)
 
+        if prop == "color":
+            return self.bind_color(ref_ui)
+
         return super().bind_prop(prop, ref_ui)
+
+    def bind_color(self, ref_ui: ReadonlyRef):
+        @effect
+        def _():
+            ele = cast(ui.label, self.element)
+            color = ref_ui.value
+            if color in TAILWIND_COLORS:
+                ele.classes(replace=f"text-{color}")
+            elif color is not None:
+                ele._style["color"] = color
+
+            ele.update()
 
     def bind_text(self, ref_ui: ReadonlyRef):
         @effect

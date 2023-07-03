@@ -1,7 +1,7 @@
 from .source import DataFrameSource
 import pandas as pd
 from .source import BuildOptionsArgs
-from echarts.ECharts import EChartsClickEventArguments
+from best4nicegui.reactive.echarts.ECharts import EChartsClickEventArguments
 
 
 def create_source(df: pd.DataFrame):
