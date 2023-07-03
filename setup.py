@@ -8,7 +8,7 @@ import best4nicegui
 with open("README.md", encoding="utf8") as readme_file:
     readme = readme_file.read()
 
-requirements = ["pandas", "signe", "nicegui"]
+requirements = ["pandas", "signe", "nicegui", "typing_extensions"]
 
 test_requirements = ["pytest>=3"]
 

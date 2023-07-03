@@ -1,7 +1,7 @@
 from signe import createSignal, effect, computed
 from signe.types import TSetter, TGetter
 from typing import TypeVar, Generic, overload, Union, Callable, cast
-
+from nicegui import ui
 
 T = TypeVar("T")
 
@@ -39,3 +39,21 @@ def ref_computed(fn: Callable[[], T]):
     getter = computed(fn)
 
     return ReadonlyRef(getter)
+
+
+def effect_refreshable(func):
+    re_func = ui.refreshable(func)
+
+    first = True
+
+    @effect
+    def runner():
+        nonlocal first
+        if first:
+            re_func()
+            first = False
+            return
+
+        re_func.refresh()
+
+    return runner

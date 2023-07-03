@@ -1,6 +1,6 @@
-from typing import TypeVar, Generic, cast
+from typing import TypeVar, Generic, cast, Dict, Union, overload
+from typing_extensions import Self
 from signe import createSignal, effect
-from signe.types import TGetter, TSetter
 from best4nicegui.utils.signals import ReadonlyRef, Ref
 from nicegui import ui
 from nicegui.elements.mixins.text_element import TextElement
@@ -10,6 +10,7 @@ from nicegui.elements.mixins.color_elements import (
     QUASAR_COLORS,
     TAILWIND_COLORS,
 )
+import pandas as pd
 
 T = TypeVar("T")
 
@@ -160,5 +161,49 @@ class TextElementBindableUi(BindableUi[str, TWidget]):
         @effect
         def _():
             cast(TextElement, self.element).on_text_change(ref_ui.value)
+
+        return self
+
+
+_TAggridValue = Union[Dict, pd.DataFrame]
+
+
+class AggridBindableUi(BindableUi[_TAggridValue, ui.aggrid]):
+    def __init__(self, value: _TAggridValue, element: ui.aggrid) -> None:
+        super().__init__(value, element)
+
+    def bind_prop(self, prop: str, ref_ui: ReadonlyRef):
+        if prop == "options":
+            return self.bind_options(ref_ui)
+
+        return super().bind_prop(prop, ref_ui)
+
+    @overload
+    def bind_options(self, ref_ui: ReadonlyRef[Dict]) -> Self:
+        ...
+
+    @overload
+    def bind_options(self, ref_ui: ReadonlyRef[pd.DataFrame]) -> Self:
+        ...
+
+    def bind_options(self, ref_ui: ReadonlyRef):
+        @effect
+        def _():
+            ele = self.element
+
+            data = ref_ui.value
+            if isinstance(data, pd.DataFrame):
+                columnDefs = [{"headerName": col, "field": col} for col in data.columns]
+
+                for col in data.select_dtypes(["datetime"]).columns:
+                    data[col] = data[col].dt.strftime("%Y-%m-%d")
+
+                rowData = data.to_dict("records")
+
+                data = {"columnDefs": columnDefs, "rowData": rowData}
+
+            ele._props["options"].update(data)
+
+            ele.update()
 
         return self

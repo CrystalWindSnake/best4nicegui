@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, Dict, Optional, cast, overload
 import best4nicegui.utils.types as types_utils
 from nicegui import ui
 from .ref import (
@@ -6,8 +6,10 @@ from .ref import (
     TextElementBindableUi,
     ValueElementBindableUi,
     TextColorElementBindableUi,
+    AggridBindableUi,
 )
 from signe import effect
+import pandas as pd
 
 
 @types_utils.mirror_func(ui.label)
@@ -18,10 +20,80 @@ def label(*arg, **kws) -> TextElementBindableUi[ui.label]:
 
 
 @types_utils.mirror_func(ui.input)
+def lazy_input(*arg, **kws) -> ValueElementBindableUi[str, ui.input]:
+    return _input(lazy=True, *arg, **kws)
+
+
+@types_utils.mirror_func(ui.input)
 def input(*arg, **kws) -> ValueElementBindableUi[str, ui.input]:
+    return _input(*arg, **kws)
+
+
+def _input(*arg, **kws) -> ValueElementBindableUi[str, ui.input]:
+    has_lazy = "lazy" in kws
+    is_lazy = has_lazy and kws["lazy"]
+    if has_lazy:
+        del kws["lazy"]
     element = ui.input(*arg, **kws)
     r = ValueElementBindableUi(element.value, element)
-    ValueElementBindableUi._setup_normal(r)
+
+    @effect
+    def _():
+        element.value = r.value
+
+    if is_lazy:
+
+        def onValueChanged():
+            r.value = element.value
+
+        element.on("blur", onValueChanged)
+        element.on("keyup.enter", onValueChanged)
+    else:
+
+        def onValueInput(args):
+            r.value = args["args"]
+
+        element.on("update:modelValue", handler=onValueInput)
+
+    return r
+
+
+@types_utils.mirror_func(ui.textarea)
+def lazy_textarea(*arg, **kws) -> ValueElementBindableUi[str, ui.textarea]:
+    return _textarea(lazy=True, *arg, **kws)
+
+
+@types_utils.mirror_func(ui.textarea)
+def textarea(*arg, **kws) -> ValueElementBindableUi[str, ui.textarea]:
+    return _textarea(*arg, **kws)
+
+
+def _textarea(*arg, **kws) -> ValueElementBindableUi[str, ui.textarea]:
+    has_lazy = "lazy" in kws
+    is_lazy = has_lazy and kws["lazy"]
+    if has_lazy:
+        del kws["lazy"]
+    element = ui.textarea(*arg, **kws)
+    r = ValueElementBindableUi(element.value, element)
+
+    @effect
+    def _():
+        element.value = r.value
+
+    if is_lazy:
+
+        def onValueChanged():
+            r.value = element.value
+
+        element.on("blur", onValueChanged)
+        element.on("keyup.enter", onValueChanged)
+    else:
+
+        def onValueInput(args):
+            element.value = args["args"]
+
+        element.on("update:modelValue", handler=onValueInput)
+
     return r
 
 
@@ -65,6 +137,15 @@ def icon(*arg, **kws) -> TextColorElementBindableUi[str, ui.icon]:
     return r
 
 
+@types_utils.mirror_func(ui.button)
+def button(*arg, **kws) -> BindableUi[str, ui.button]:
+    element = ui.button(*arg, **kws)
+
+    r = BindableUi("", element)
+
+    return r
+
+
 def color_picker(init_color="rgba(88, 152, 212,1)") -> BindableUi[str, ui.color_picker]:
     def on_pick(e):
         r.value = e.color
@@ -76,4 +157,17 @@ def color_picker(init_color="rgba(88, 152, 212,1)") -> BindableUi[str, ui.color_
 
     r = BindableUi(init_color, element)
 
+    return r
+
+
+@types_utils.mirror_func(ui.aggrid)
+def aggrid(options: Dict, *arg, **kws) -> AggridBindableUi:
+    if "pagination" not in options:
+        options["pagination"] = True
+
+        if "paginationPageSize" not in options:
+            options["paginationPageSize"] = 20
+
+    element = ui.aggrid(options, *arg, **kws)
+    r = AggridBindableUi(options, element)
     return r

@@ -81,6 +81,18 @@ class DataFrameSource:
     ):
         return self._get_filtered_df(element.id, include_expr)
 
+    def send_filter(self, element: ui.element, fn: Callable[..., Optional[Filter]]):
+        filter = fn()
+
+        @self._set_filters
+        def _(filters_map: _TFilterMap):
+            if filter is None:
+                if element.id in filters_map:
+                    del filters_map[element.id]
+            else:
+                filters_map[element.id] = filter
+            return filters_map
+
     @types_utils.mirror_method(cp_signature.table)
     def table(self, *arg, **kws) -> ui.table:
         pagination = kws.get("pagination", cp_signature.Table_Defalut_pagination)
@@ -158,15 +170,13 @@ class FieldSource:
 
             values = [v["label"] for v in value]
 
-            @self._df_source._set_filters
-            def _(filters_map: _TFilterMap):
-                if len(values) == 0 and element.id in filters_map:
-                    del filters_map[element.id]
-                else:
-                    filters_map[element.id] = Filter(
-                        lambda x: x[self.__field].isin(values), "regular"
-                    )
-                return filters_map
+            def update_filter():
+                if len(values) == 0:
+                    return None
+
+                return Filter(lambda x: x[self.__field].isin(values), "regular")
+
+            self._df_source.send_filter(element, update_filter)
 
         element.on("update:model-value", handler=on_update)
 
@@ -189,15 +199,13 @@ class FieldSource:
             if isinstance(value, int):
                 value = element.options[value]
 
-            @self._df_source._set_filters
-            def _(filters_map: _TFilterMap):
-                if value is None and element.id in filters_map:
-                    del filters_map[element.id]
-                else:
-                    filters_map[element.id] = Filter(
-                        lambda x: x[self.__field] == value, "regular"
-                    )
-                return filters_map
+            def update_filter():
+                if value is None:
+                    return None
+
+                return Filter(lambda x: x[self.__field] == value, "regular")
+
+            self._df_source.send_filter(element, update_filter)
 
         element.on("update:model-value", handler=on_update)
 
@@ -220,15 +228,13 @@ class FieldSource:
             if isinstance(value, int):
                 value = element.options[value]
 
-            @self._df_source._set_filters
-            def _(filters_map: _TFilterMap):
-                if value is None and element.id in filters_map:
-                    del filters_map[element.id]
-                else:
-                    filters_map[element.id] = Filter(
-                        lambda x: x[self.__field] == value, "regular"
-                    )
-                return filters_map
+            def update_filter():
+                if value is None:
+                    return None
+
+                return Filter(lambda x: x[self.__field] == value, "regular")
+
+            self._df_source.send_filter(element, update_filter)
 
         element.on("update:model-value", handler=on_update)
 
@@ -270,18 +276,16 @@ class FieldSource:
 
             element._props["label-value"] = f"{self.__field} {operators} {value}"
 
-            @self._df_source._set_filters
-            def _(filters_map: _TFilterMap):
-                if value is None and element.id in filters_map:
-                    del filters_map[element.id]
-                else:
-                    filters_map[element.id] = Filter(
-                        lambda x: _slider_operator_map[operators](
-                            x[self.__field], value
-                        ),
-                        "regular",
-                    )
-                return filters_map
+            def update_filter():
+                if value is None:
+                    return None
+
+                return Filter(
+                    lambda x: _slider_operator_map[operators](x[self.__field], value),
+                    "regular",
+                )
+
+            self._df_source.send_filter(element, update_filter)
 
         element.on("change", handler=on_update)
 
@@ -349,14 +353,14 @@ class EChartsBinder:
         if self.__effect_fn:
             self.__effect_fn()
 
-    def send_filter(self, fn):
-        @self.__ds._set_filters
-        def _(filters_map: _TFilterMap):
-            filters_map[self.element.id] = Filter(
-                lambda x: _slider_operator_map[operators](x[self.__field], value),
+    def add_filter(self, fn: Callable[[pd.DataFrame], pd.Series[bool]]):
+        def update_filter():
+            return Filter(
+                fn,
                 "chart",
             )
-            return filters_map
+
+        self.__ds.send_filter(self.element, update_filter)
 
     def build_options(self, fn: Callable[[BuildOptionsArgs], Dict]):
         """创建图表配置字典
