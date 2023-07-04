@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, cast, Dict, Union, overload
+from typing import Any, TypeVar, Generic, cast, Dict, Union, overload
 from typing_extensions import Self
 from signe import createSignal, effect
 from best4nicegui.utils.signals import ReadonlyRef, Ref
@@ -10,6 +10,7 @@ from nicegui.elements.mixins.color_elements import (
     QUASAR_COLORS,
     TAILWIND_COLORS,
 )
+from nicegui.page_layout import Drawer
 import pandas as pd
 
 T = TypeVar("T")
@@ -40,7 +41,7 @@ class BindableUi(RefUi[T, TWidget]):
         def _():
             element = cast(ui.element, self.element)
             element._props[prop] = ref_ui.value
-            # element.update()
+            element.update()
 
         return self
 
@@ -169,17 +170,13 @@ class TextElementBindableUi(BindableUi[str, TWidget]):
         def _():
             ele = cast(ui.label, self.element)
             color = ref_ui.value
-            if color in TAILWIND_COLORS:
-                ele.classes(replace=f"text-{color}")
-            elif color is not None:
-                ele._style["color"] = color
-
+            ele._style["color"] = color
             ele.update()
 
     def bind_text(self, ref_ui: ReadonlyRef):
         @effect
         def _():
-            cast(TextElement, self.element).on_text_change(ref_ui.value)
+            cast(TextElement, self.element).on_text_change(str(ref_ui.value))
 
         return self
 
@@ -226,3 +223,15 @@ class AggridBindableUi(BindableUi[_TAggridValue, ui.aggrid]):
             ele.update()
 
         return self
+
+
+class DrawerBindableUi(BindableUi[bool, Drawer]):
+    def __init__(self, value: bool, element: Drawer) -> None:
+        super().__init__(value, element)
+
+    def __enter__(self):
+        self.element.__enter__()
+        return self
+
+    def __exit__(self, *_: Any):
+        self.element.__exit__(*_)

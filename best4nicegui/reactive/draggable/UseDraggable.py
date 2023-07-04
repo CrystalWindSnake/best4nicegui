@@ -26,6 +26,7 @@ class UseDraggableUpdateEventArguments(EventArguments):
 def use_draggable(element: Element, auto_bind_style=True):
     ud = UseDraggable(element)
     if auto_bind_style:
+        element.style(replace="position:fixed")
         ud.bind_style(element)
 
     return ud
@@ -37,11 +38,38 @@ class UseDraggable(Element):
         self._props["elementId"] = str(element.id)
 
         self.__style_getter, self.__style_setter = createSignal("")
+        self.__x_getter, self.__x_setter = createSignal(0.0)
+        self.__y_getter, self.__y_setter = createSignal(0.0)
+        self.__isDragging_getter, self.__isDragging_setter = createSignal(False)
 
         def update(args: UseDraggableUpdateEventArguments):
             self.__style_setter(args.style)
+            self.__x_setter(args.x)
+            self.__y_setter(args.y)
 
         self.on_update(update)
+
+        def on_isDraggingUpdate(args):
+            self.__isDragging_setter(args["args"]["isDragging"])
+            # print(args['args']['isDragging'])
+
+        self.on("isDraggingUpdate", on_isDraggingUpdate)
+
+    @property
+    def x(self):
+        return self.__x_getter()
+
+    @property
+    def y(self):
+        return self.__y_getter()
+
+    @property
+    def style(self):
+        return self.__style_getter()
+
+    @property
+    def is_dragging(self):
+        return self.__isDragging_getter()
 
     def bind_style(self, element: Element):
         @effect

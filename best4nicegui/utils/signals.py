@@ -1,6 +1,6 @@
 from signe import createSignal, effect, computed
 from signe.types import TSetter, TGetter
-from typing import TypeVar, Generic, overload, Union, Callable, cast
+from typing import TypeVar, Generic, overload, Optional, Callable, cast, Union
 from nicegui import ui
 
 T = TypeVar("T")
@@ -27,6 +27,37 @@ class Ref(ReadonlyRef[T]):
     @value.setter
     def value(self, value: T):
         self.___setter(value)
+
+
+@overload
+def ref_from_signal(getter: TGetter[T]) -> ReadonlyRef[T]:
+    ...
+
+
+@overload
+def ref_from_signal(getter: TGetter[T], setter: TSetter[T]) -> Ref[T]:
+    ...
+
+
+def ref_from_signal(getter: TGetter[T], setter: Optional[TSetter[T]] = None):
+    if setter is None:
+        return cast(ReadonlyRef[T], ReadonlyRef(getter))
+
+    return cast(Ref[T], Ref(getter, setter))
+
+
+_TMaybeRef = Union[T, Ref[T]]
+
+
+def is_ref(maybe_ref: _TMaybeRef):
+    return isinstance(maybe_ref, ReadonlyRef)
+
+
+def to_ref(maybe_ref: _TMaybeRef[T]):
+    if is_ref(maybe_ref):
+        return cast(Ref[T], maybe_ref)
+
+    return cast(Ref[T], ref(maybe_ref))
 
 
 def ref(value: T):
