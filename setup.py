@@ -40,7 +40,7 @@ setup(
         (
             "echarts",
             [
-                "best4nicegui/bi/echarts/ECharts.js",
+                "best4nicegui/reactive/echarts/ECharts.js",
             ],
         )
     ],
